@@ -10981,7 +10981,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1791036909038" data-version="v8.56">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1791044032787" data-version="v8.66.2">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -70610,7 +70610,7 @@ let any = false;
 missing.forEach(m => { if (durMap[m.neteaseId] && !m.duration) { m.duration = durMap[m.neteaseId]; any = true; } });
 if (any) { saveLibrary(); renderPage(); }
 }
-if (feeMap && Object.keys(feeMap).length) {
+if (feeMap && Object.keys(feeMap).length && !ncmIsLogged()) {
 const vipTracks = trackIds.map(findTrack).filter(m => m && m.neteaseId && (feeMap[m.neteaseId] === 1 || feeMap[m.neteaseId] === 4));
 removeBatchVipSongs(vipTracks); // #709：移除逻辑收敛到共享助手（meting 探测兜底同口径）
 }
@@ -70782,7 +70782,7 @@ tmp.preload = 'metadata';
 tmp.onloadedmetadata = function () { finish(tmp.duration || 0); };
 tmp.onerror = function () {
 finish(0);
-if (m && m.neteaseId && /^sm_pl_/.test(m.id) && !m._vipChecked && findTrack(m.id)) {
+if (m && m.neteaseId && /^sm_pl_/.test(m.id) && !m._vipChecked && findTrack(m.id) && !ncmIsLogged()) {
 m._vipChecked = true;
 confirmVipViaMeting(m.neteaseId, function (isVip) {
 if (!isVip) return;
@@ -71250,8 +71250,16 @@ window.openTCPanel('批量导入音乐', '' +
 '<div class="sm-fld-hint" style="margin-bottom:8px">' + PLAYLIST_LINK_REMIND + '<b>支持 3 种导入方式：</b><br>① <b>网易云歌单</b>：直接粘贴歌单分享链接（music.163.com/playlist?id=xxx 或 #/playlist?id=xxx），自动导入整个歌单；<br>② <b>网易云单曲</b>：每行一个歌曲数字 ID（如 2064961530），或<b>直接粘贴完整网易云链接</b>（如 music.163.com/#/song?id=xxx、song/media/outer/url?id=xxx.mp3），自动识别导入，不用手动填 ID；<br>③ <b>本地/直链</b>：按「歌曲名称 / 歌手 / 音乐直链URL」格式粘贴，每首歌空一行分隔（URL 栏同样支持直接贴网易云链接；直链要点开就是音频本身、以 .mp3 等结尾、需 https）。<br>' + OTHER_APP_LINK_HINT + '<br><span style="opacity:.75">⚠ 链接上传的 VIP/付费歌曲无法播放（仅免费歌曲可播）；歌单导入会自动移除 VIP/付费歌曲；歌单导入受网络环境影响（部分手机浏览器可能拦截），失败可稍后重试</span></div>' +
 '<textarea id="sm-batch-input" class="tc-input" rows="8" placeholder="网易云歌单链接：https://music.163.com/playlist?id=3778678&#10;网易云单曲链接：https://music.163.com/#/song?id=27538343&#10;或纯数字 ID：27538343&#10;&#10;歌曲名称：Baby&#10;歌手：EXO-K&#10;音乐直链URL：http://music.163.com/song/media/outer/url?id=27538343.mp3"></textarea>' +
 '<div class="sm-fld"><label>导入到歌单</label><select class="tc-input" id="sm-target-pl">' + targetPlOptions() + '</select></div>' +
+'<div class="gs-row"><span>我的网易云歌单</span><button class="cc-tool" id="sm-ncm-pl" style="width:auto;height:32px;padding:0 12px">一键导入</button></div>' +
+'<div class="sm-set-hint" style="margin-top:-4px">登录网易云后点这里，可把你账号下的歌单整个导入（VIP 歌曲登录后完整播放）；未登录时点这里会先跳去扫码登录</div>' +
 '<div class="mail-actions"><button class="cc-tool" id="sm-batch-cancel">取消</button><button class="cc-tool" id="sm-batch-ok">开始导入</button></div>');
 document.getElementById('sm-batch-cancel').addEventListener('click', () => { document.getElementById('tc-mask').hidden = true; });
+const ncmPlBtn = document.getElementById('sm-ncm-pl');
+if (ncmPlBtn) ncmPlBtn.addEventListener('click', () => {
+if (!ncmIsLogged()) { document.getElementById('tc-mask').hidden = true; toast('请先扫码登录网易云'); openNcmLoginPanel(); return; }
+document.getElementById('tc-mask').hidden = true;
+openNcmPlaylistPanel();
+});
 document.getElementById('sm-batch-ok').addEventListener('click', () => {
 const raw = readCeInput('sm-batch-input');
 if (!raw) { toast('请输入内容'); return; }
@@ -72005,7 +72013,7 @@ audio = createAudio();
 try { audio.referrerPolicy = 'no-referrer'; } catch (e) {}
 audio.preload = 'auto';
 setupHandlers(m);
-audio.src = m.url;
+audio.src = (m.neteaseId && ncmIsLogged() && m._ncmFullUrl) ? m._ncmFullUrl : m.url;
 const p2 = audio.play();
 if (p2 && p2.catch) p2.catch(function () { armAutoResume(); });
 };
@@ -72086,7 +72094,7 @@ audio = createAudio();
 try { audio.referrerPolicy = 'no-referrer'; } catch (e) {}
 audio.preload = 'auto';
 setupHandlers(m);
-audio.src = m.url;
+audio.src = (m.neteaseId && ncmIsLogged() && m._ncmFullUrl) ? m._ncmFullUrl : m.url;
 const p = audio.play();
 if (p && p.catch) p.catch(function () { bgResumeFails++; bgResumeFailAt = Date.now(); });
 }
@@ -72193,6 +72201,144 @@ offerRemoveDamagedSong(m);
 }
 function neteaseMetingUrl(id) {
 return 'https://api.injahow.cn/meting/?type=url&id=' + encodeURIComponent(String(id));
+}
+const NCM_API_BASE = 'https://zm.wwoyun.cn';
+const NCM_LOGIN_KEY = 'mochi-ncm-login';
+let ncmState = { cookie: '', uid: '', nickname: '', qrKey: '', qrTimer: null };
+let ncmFallbackId = null; // playTrack 直链解析失败时放行一次回退原逻辑
+function ncmIsLogged() {
+return !!(ncmState.cookie && ncmState.uid);
+}
+function ncmFetch(path, opts) {
+const headers = Object.assign({}, (opts && opts.headers) || {});
+if (ncmState.cookie) headers['Cookie'] = ncmState.cookie;
+return fetch(NCM_API_BASE + path, Object.assign({}, opts || {}, { headers: headers }));
+}
+function resolveNcmPlayUrl(m, cb) {
+if (!m || !m.neteaseId) { try { cb(null); } catch (e) {} return; }
+ncmFetch('/api/song/url?id=' + encodeURIComponent(String(m.neteaseId)))
+.then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+.then(function (j) {
+let u = null;
+try {
+if (j && j.data && j.data[0] && j.data[0].url) u = String(j.data[0].url).replace(/^http:/i, 'https:');
+} catch (e) {}
+cb(u);
+})
+.catch(function () { cb(null); });
+}
+function openNcmLoginPanel() {
+if (!window.openTCPanel) return;
+window.openTCPanel('网易云账号', '' +
+'<div class="sm-set-hint" style="margin-bottom:8px">扫码登录网易云账号后：① 可直接一键导入自己账号下的歌单；② VIP 歌曲完整播放（不再被自动移除/拦截）。其他功能不受影响。</div>' +
+'<div style="text-align:center" id="ncm-qr-wrap"><div style="color:var(--muted);font-size:12px;padding:18px 0">正在获取二维码…</div></div>' +
+'<div class="sm-set-hint" id="ncm-qr-tip" style="text-align:center">用手机网易云 App「扫一扫」登录</div>' +
+'<div class="mail-actions"><button class="cc-tool" id="ncm-qr-cancel">取消</button></div>');
+document.getElementById('ncm-qr-cancel').addEventListener('click', function () {
+stopNcmQrPoll();
+document.getElementById('tc-mask').hidden = true;
+});
+ncmFetch('/api/login/qr/key').then(r => r.json()).then(j => {
+if (!j || !j.data || !j.data.unikey) throw new Error('no key');
+ncmState.qrKey = j.data.unikey;
+return ncmFetch('/api/login/qr/create?qrimg=true&key=' + encodeURIComponent(ncmState.qrKey)).then(r => r.json());
+}).then(j => {
+const wrap = document.getElementById('ncm-qr-wrap');
+if (!wrap) return;
+const img = j && j.data && j.data.qrimg;
+if (img) {
+wrap.innerHTML = '<img src="' + img + '" style="width:220px;height:220px;max-width:80vw;border-radius:12px;background:#fff;padding:8px" alt="网易云登录二维码">';
+} else if (j && j.data && j.data.qrurl) {
+wrap.innerHTML = '<div style="padding:18px 0">二维码加载失败，请打开链接登录：<br><a href="' + j.data.qrurl + '" target="_blank" rel="noopener" style="color:var(--link,#5b8cff)">' + j.data.qrurl + '</a></div>';
+} else {
+throw new Error('no qr');
+}
+startNcmQrPoll();
+}).catch(function (e) {
+const wrap = document.getElementById('ncm-qr-wrap');
+if (wrap) wrap.innerHTML = '<div style="color:var(--danger,#ff5b5b);font-size:13px;padding:18px 0">获取二维码失败（' + e.message + '），请稍后重试</div>';
+});
+}
+function startNcmQrPoll() {
+stopNcmQrPoll();
+ncmState.qrTimer = setInterval(function () {
+ncmFetch('/api/login/qr/check?key=' + encodeURIComponent(ncmState.qrKey)).then(r => r.json()).then(j => {
+if (!j || !j.data) return;
+if (j.code === 800) { setNcmQrTip('二维码已失效，请关闭后重开'); stopNcmQrPoll(); return; }
+if (j.code === 801) { setNcmQrTip('等待扫码…'); return; }
+if (j.code === 802) { setNcmQrTip('已扫码，请在手机上确认'); return; }
+if (j.code === 803) {
+const ck = (j.data.cookie || j.data.cookies || []).join('; ');
+if (ck) {
+stopNcmQrPoll();
+ncmState.cookie = ck;
+ncmState.uid = String(j.data.uid || '');
+ncmState.nickname = String(j.data.nickname || '');
+try { store.set(NCM_LOGIN_KEY, JSON.stringify({ cookie: ck, uid: ncmState.uid, nickname: ncmState.nickname, at: Date.now() })); } catch (e) {}
+const wrap = document.getElementById('ncm-qr-wrap');
+if (wrap) wrap.innerHTML = '<div style="padding:22px 0;color:#34c759;font-size:15px">登录成功 ✓</div>';
+setNcmQrTip('已登录网易云账号' + (ncmState.nickname ? '：' + ncmState.nickname : '') + '，现在可以去「批量导入」一键导入歌单');
+try { renderNcmLoginRow(); } catch (e) {}
+try { toast('网易云登录成功，VIP 歌曲可完整播放'); } catch (e) {}
+}
+}
+}).catch(function () {});
+}, 2500);
+}
+function stopNcmQrPoll() {
+if (ncmState.qrTimer) { clearInterval(ncmState.qrTimer); ncmState.qrTimer = null; }
+}
+function setNcmQrTip(t) {
+const el = document.getElementById('ncm-qr-tip');
+if (el) el.textContent = t;
+}
+function openNcmPlaylistPanel() {
+if (!window.openTCPanel) return;
+window.openTCPanel('我的网易云歌单', '' +
+'<div class="sm-set-hint" style="margin-bottom:8px">一键导入你账号下的歌单：点击歌单名称立即导入（登录态下 VIP 歌曲不会自动移除）。</div>' +
+'<div id="ncm-pl-list" style="max-height:46vh;overflow:auto;color:var(--muted);font-size:13px;padding:6px 0">正在拉取歌单列表…</div>' +
+'<div class="mail-actions"><button class="cc-tool" id="ncm-pl-close">关闭</button></div>');
+document.getElementById('ncm-pl-close').addEventListener('click', function () { document.getElementById('tc-mask').hidden = true; });
+const listEl = document.getElementById('ncm-pl-list');
+ncmFetch('/api/user/playlist?uid=' + encodeURIComponent(ncmState.uid))
+.then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+.then(function (j) {
+const pls = (j && j.playlist) || (j && j.data && j.data.list) || [];
+if (!pls || !pls.length) { if (listEl) listEl.innerHTML = '<div style="padding:12px 0">没有找到歌单，或接口返回异常</div>'; return; }
+let html = '';
+pls.forEach(function (pl) {
+const pid = pl && (pl.id || pl.resourceId);
+if (!pid) return;
+html += '<div class="gs-row" style="padding:9px 0;border-bottom:1px solid rgba(128,128,128,.18)"><span>' + (pl.name || '未命名歌单') + '（' + (pl.trackCount || '?') + ' 首）</span><button class="cc-tool" id="ncm-pl-import-' + pid + '" style="width:88px;height:30px">一键导入</button></div>';
+});
+listEl.innerHTML = html || '<div style="padding:12px 0">没有找到歌单</div>';
+pls.forEach(function (pl) {
+const pid = pl && (pl.id || pl.resourceId);
+if (!pid) return;
+const btn = document.getElementById('ncm-pl-import-' + pid);
+if (btn) btn.addEventListener('click', function () {
+document.getElementById('tc-mask').hidden = true;
+importNcmPlaylist(String(pid));
+});
+});
+})
+.catch(function (e) {
+if (listEl) listEl.innerHTML = '<div style="color:var(--danger,#ff5b5b);padding:12px 0">拉取歌单失败：' + e.message + '</div>';
+});
+}
+function importNcmPlaylist(pid) {
+if (!pid) return;
+toast('正在导入网易云歌单…');
+importNeteasePlaylist(pid, function (res) {
+try {
+if (res && res.ok) toast('歌单导入完成：新增 ' + res.added + ' 首' + ((res.vip || 0) ? '，VIP ' + res.vip + ' 首完整播放保留' : ''));
+else toast('导入失败，请稍后重试');
+} catch (e) {}
+});
+}
+function renderNcmLoginRow() {
+const el = document.getElementById('sm-ncm-login');
+if (el) el.textContent = ncmIsLogged() ? ('已登录：' + (ncmState.nickname || ncmState.uid)) : '未登录';
 }
 function resolveNeteaseDirectUrl(m, cb) {
 try {
@@ -72414,6 +72560,23 @@ else ensureSongCover(m);
 teardownAudio();
 if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
 updatePlayerBar();
+if (m.neteaseId && ncmIsLogged() && ncmFallbackId !== m.id) {
+const startNcm = function (url) {
+if (currentId !== m.id || !wantPlay) return;
+if (!url) { ncmFallbackId = m.id; try { playTrack(m.id, fromWidget); } catch (e) {} return; }
+audio = createAudio();
+try { audio.referrerPolicy = 'no-referrer'; } catch (e) {}
+audio.src = url;
+startPlayback(m);
+};
+if (m._ncmFullUrl) { startNcm(m._ncmFullUrl); return; }
+resolveNcmPlayUrl(m, function (u) {
+if (u) { m._ncmFullUrl = u; try { saveLibrarySoon(); } catch (e) {} }
+startNcm(u);
+});
+return;
+}
+ncmFallbackId = null;
 if (m.source === 'local' || (!m.url && m.source !== 'url')) {
 const key = MUSIC_PREFIX + ':music-file:' + m.id;
 const markFileLost = () => { try { if (!m.fileLost) { m.fileLost = 1; saveLibrary(); } } catch (e) {} };
@@ -74043,6 +74206,15 @@ syncOffEn();
 syncOffEn();
 const sleepBtn = document.getElementById('sm-set-sleep');
 if (sleepBtn) sleepBtn.addEventListener('click', () => { document.getElementById('tc-mask').hidden = true; openSleepPanel(); });
+const ncmBtn = document.getElementById('sm-ncm-login');
+if (ncmBtn) {
+renderNcmLoginRow();
+ncmBtn.addEventListener('click', () => {
+if (ncmIsLogged()) { toast('已登录网易云，无需重复扫码'); return; }
+document.getElementById('tc-mask').hidden = true;
+openNcmLoginPanel();
+});
+}
 const syncPauseEn = function () {
 const box = document.getElementById('sm-set-pauseprob');
 if (box) box.style.opacity = settings.taPauseEn ? '' : '0.4';
@@ -74282,6 +74454,14 @@ try { renderFloat(); } catch (e) {}
 try { syncTaFavTab(); renderTaFavList(); } catch (e) {}
 } catch (e) {}
 });
+try {
+const ncmSaved = JSON.parse(store.get(NCM_LOGIN_KEY) || 'null');
+if (ncmSaved && ncmSaved.cookie && ncmSaved.uid) {
+ncmState.cookie = ncmSaved.cookie;
+ncmState.uid = String(ncmSaved.uid);
+ncmState.nickname = String(ncmSaved.nickname || '');
+}
+} catch (e) {}
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("music-player.js");
 } catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("music-player.js"); try { console.error("[JS] music-player.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[music-player.js] " + String(__e && __e.message || __e)); } })();
@@ -128135,4 +128315,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mush4rn2 -->
+<!-- __MOCHI_EOF__ musldgcz -->
